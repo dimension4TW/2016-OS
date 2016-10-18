@@ -6,64 +6,40 @@
 #include <iostream>
 #include <termcap.h>
 
-#define LSH_RL_BUFSIZE 1024
-#define LSH_TOK_BUFSIZE 64
-#define LSH_TOK_DELIM " \t\r\n\a"
+#define BUFFER_SIZE 1024
+#define TOK_SIZE 64
+#define DELETE " \t\r\n\a"
 
 using namespace std;
 
-char *lsh_read_line(void)
+char *mysh_read_line(void)
 {
-    int bufsize = LSH_RL_BUFSIZE;
-    int position = 0;
-    char* buffer;
-    buffer = (char*)malloc(sizeof(char)*bufsize);
-    int c;
 
-    if (!buffer) {
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
+    char* line;
+    line = (char*)malloc(sizeof(char)*BUFFER_SIZE);
+    cin.getline(line,BUFFER_SIZE);
 
-    while (1) {
-        // Read a character
-        c = getchar();
-
-        // If we hit EOF, replace it with a null character and return.
-        if (c == EOF || c == '\n') {
-            buffer[position] = '\0';
-            return buffer;
-        } else {
-            buffer[position] = c;
-        }
-        position++;
-
-    }
+    return line;
 }
 
-char **lsh_split_line(char *line)
+char **mysh_split_line(char *line)
 {
-    int bufsize = LSH_TOK_BUFSIZE, position = 0;
+    int bufsize = TOK_SIZE, position = 0;
     char **tokens = (char**)malloc(bufsize * sizeof(char*));
     char *token;
 
-    if (!tokens) {
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    token = strtok(line, LSH_TOK_DELIM);
+    token = strtok(line,DELETE);
     while (token != NULL) {
         tokens[position] = token;
         position++;
 
-        token = strtok(NULL, LSH_TOK_DELIM);
+        token = strtok(NULL,DELETE);
     }
     tokens[position] = NULL;
     return tokens;
 }
 
-int lsh_launch(char **args)
+int mysh_launch(char **args)
 {
     pid_t pid, wpid;
     int status;
@@ -88,36 +64,35 @@ int lsh_launch(char **args)
     return 1;
 }
 
-int lsh_execute(char **args)
+int mysh_execute(char **args)
 {
     if (args[0] == NULL) {
-        // An empty command was entered.
         return 1;
     }
 
-    return lsh_launch(args);
+    return mysh_launch(args);
 }
 
-void lsh_loop(void) {
+void mysh_loop(void) {
     char *line;
     char **args;
-    int status;
+    int check;
 
     do {
         printf("> ");
-        line = lsh_read_line();
-        args = lsh_split_line(line);
-        status = lsh_execute(args);
+        line = mysh_read_line();
+        args = mysh_split_line(line);
+        check = mysh_execute(args);
 
         free(line);
         free(args);
-    } while (status);
+    } while (check);
 }
 
 int main(int argc, char **argv)
 {
 
-    lsh_loop();
+    mysh_loop();
 
     return EXIT_SUCCESS;
 }
