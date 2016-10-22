@@ -8,7 +8,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <termcap.h>
 
 #define BUFFER_SIZE 1024
 #define TOK_SIZE 1024
