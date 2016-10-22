@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <termcap.h>
 
 #define BUFFER_SIZE 1024
 #define TOK_SIZE 1024
@@ -65,17 +66,19 @@ int mysh_launch(instruction a)
         if(a.outpt){
             //cout<<"GG"<<endl;
             //cout<<a.iofile<<endl;
-            int fd = open(a.iofile, O_RDWR | O_CREAT);
+            int fd = open(a.iofile, O_RDWR|O_CREAT, 0644);
             close(1);
             dup2(fd,1);
             //cout<<"GG"<<endl;
         }
 
+        /*
         if(a.inpt){
             int fd = open(a.iofile, O_RDONLY);
             close(0);
             dup2(fd,0);
         }
+        */
 
         if (execvp(a.args[0], a.args) == -1) {
             perror("myshell");
