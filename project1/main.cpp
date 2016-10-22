@@ -5,6 +5,9 @@
 #include <string.h>
 #include <iostream>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <termcap.h>
 
 #define BUFFER_SIZE 1024
@@ -19,7 +22,10 @@ struct instruction{
 
     int status;
     int mode;
+    bool inpt;
+    bool outpt;
     char **args;
+    char *iofile;
 };
 
 char *mysh_read_line(void)
@@ -55,13 +61,28 @@ int mysh_launch(instruction a)
     int status;
 
     pid = fork();
-    cout<<"["<<pid<<"]"<<endl;
     if (pid == 0) {
         // Child process
+        if(a.outpt){
+            //cout<<"GG"<<endl;
+            //cout<<a.iofile<<endl;
+            int fd = open(a.iofile, O_RDWR | O_CREAT);
+            close(1);
+            dup2(fd,1);
+            //cout<<"GG"<<endl;
+        }
+
+        if(a.inpt){
+            int fd = open(a.iofile, O_RDONLY);
+            close(0);
+            dup2(fd,0);
+        }
+
         if (execvp(a.args[0], a.args) == -1) {
             perror("myshell");
         }
         exit(EXIT_FAILURE);
+
     } else if (pid < 0) {
         // Error forking
         perror("fork fail");
@@ -76,7 +97,6 @@ int mysh_launch(instruction a)
             if (kill(pid, SIGCONT) < 0) {
                 perror("kill (SIGCONT)");
             }
-            //cout<<"Done ["<<pid<<"]"<<endl;
         }
     }
 
@@ -106,23 +126,56 @@ int mysh_check_mode(char* line){
     return FG_MODE;
 }
 
+bool IO_redirection_check(char check, char* line){
+    if(strchr(line, check) != NULL){
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 void mysh_loop(void) {
     char *line;
+    char *re_line;
     instruction p;
+    p.inpt = false;
+    p.outpt = false;
 
     do {
         printf("> ");
+        //p.iofile = (char*)malloc(sizeof(char)*BUFFER_SIZE);
         line = mysh_read_line();
         p.mode = mysh_check_mode(line);
-        //cout<<"Mode: "<<p.mode<<endl;
+        p.outpt = IO_redirection_check('>',line);
+        p.inpt = IO_redirection_check('<',line);
+        //cout<<"input: "<<p.inpt<<endl;
+        //cout<<"output: "<<p.outpt<<endl;
+        if(p.outpt){
+            re_line = strtok(line,">");
+            p.iofile = strtok(NULL," >");
+            strcpy (line,re_line);
+            cout<<"re_line: "<<line<<endl;
+            cout<<"dirfile: "<<p.iofile<<endl;
+        }
+        else if(p.inpt){
+            re_line = strtok(line,"<");
+            p.iofile = strtok(NULL,"< ");
+            cout<<"re_line: "<<re_line<<endl;
+            cout<<"dirfile: "<<p.iofile<<endl;
+        }
+        //p.iofile = NULL;
         p.args = mysh_split_line(line);
         p.status = mysh_execute(p);
 
         free(line);
         free(p.args);
+        //free(p.iofile);
+
     } while (p.status);
 }
+
+
 
 void signal_handler(int signal) {
     const char *signal_name;
@@ -159,7 +212,7 @@ int main(int argc, char **argv)
     if (signal(SIGTSTP, signal_handler) == SIG_ERR)
         printf("\ncan't catch SIGTSTP\n");
     */
-    
+
     if (signal(SIGCHLD, signal_handler) == SIG_ERR)
         printf("\ncan't catch SIGCHLD\n");
 
