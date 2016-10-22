@@ -9,7 +9,7 @@
 
 #define BUFFER_SIZE 1024
 #define TOK_SIZE 1024
-#define DELETE " \t\r\n\a&"
+#define DELETE " \t\r\n\a"
 #define FG_MODE 0
 #define BG_MODE 1
 
@@ -115,7 +115,7 @@ void mysh_loop(void) {
         printf("> ");
         line = mysh_read_line();
         p.mode = mysh_check_mode(line);
-        cout<<"Mode: "<<p.mode<<endl;
+        //cout<<"Mode: "<<p.mode<<endl;
         p.args = mysh_split_line(line);
         p.status = mysh_execute(p);
 
@@ -124,8 +124,44 @@ void mysh_loop(void) {
     } while (p.status);
 }
 
+void signal_handler(int signal) {
+    const char *signal_name;
+    switch (signal) {
+        /*
+        case SIGINT:
+            signal_name = "SIGINT";
+            break;
+        case SIGTSTP:
+            signal_name = "SIGTSTP";
+            break;
+
+        */
+        case SIGCHLD:
+            signal_name = "SIGCHLD";
+            int pid, status;
+            while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            }
+            break;
+        default:
+            fprintf(stderr, "Error signal: %d\n", signal);
+            return;
+    }
+}
+
 int main(int argc, char **argv)
 {
+
+
+    /*
+    if (signal(SIGINT, signal_handler) == SIG_ERR)
+        printf("\ncan't catch SIGINT\n");
+
+    if (signal(SIGTSTP, signal_handler) == SIG_ERR)
+        printf("\ncan't catch SIGTSTP\n");
+    */
+    
+    if (signal(SIGCHLD, signal_handler) == SIG_ERR)
+        printf("\ncan't catch SIGCHLD\n");
 
     mysh_loop();
 
