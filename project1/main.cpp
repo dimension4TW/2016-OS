@@ -4,13 +4,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <signal.h>
 #include <termcap.h>
 
 #define BUFFER_SIZE 1024
-#define TOK_SIZE 64
-#define DELETE " \t\r\n\a"
+#define TOK_SIZE 1024
+#define DELETE " \t\r\n\a&"
+#define FG_MODE 0
+#define BG_MODE 1
 
 using namespace std;
+
+struct instruction{
+
+    int status;
+    int mode;
+    char **args;
+};
 
 char *mysh_read_line(void)
 {
@@ -39,54 +49,79 @@ char **mysh_split_line(char *line)
     return tokens;
 }
 
-int mysh_launch(char **args)
+int mysh_launch(instruction a)
 {
     pid_t pid, wpid;
     int status;
 
     pid = fork();
+    cout<<"["<<pid<<"]"<<endl;
     if (pid == 0) {
         // Child process
-        if (execvp(args[0], args) == -1) {
-            perror("lsh");
+        if (execvp(a.args[0], a.args) == -1) {
+            perror("myshell");
         }
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
         // Error forking
-        perror("lsh");
+        perror("fork fail");
     } else {
         // Parent process
-        do {
-            wpid = waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        if(a.mode==FG_MODE) {
+            do {
+                wpid = waitpid(pid, &status, WUNTRACED);
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
+        else if(a.mode==BG_MODE){
+            if (kill(pid, SIGCONT) < 0) {
+                perror("kill (SIGCONT)");
+            }
+            //cout<<"Done ["<<pid<<"]"<<endl;
+        }
     }
 
     return 1;
 }
 
-int mysh_execute(char **args)
+int mysh_execute(instruction a)
 {
-    if (args[0] == NULL) {
+    if (a.args[0] == NULL) {
         return 1;
     }
 
-    return mysh_launch(args);
+    return mysh_launch(a);
 }
+
+int mysh_check_mode(char* line){
+
+    for(int i=(int)strlen(line)-1;i>=0;i--){
+        if(line[i] == '&'){
+            line[i] = ' ';
+            return BG_MODE;
+        }
+        else if(line[i] != ' '){
+            break;
+        }
+    }
+    return FG_MODE;
+}
+
 
 void mysh_loop(void) {
     char *line;
-    char **args;
-    int check;
+    instruction p;
 
     do {
         printf("> ");
         line = mysh_read_line();
-        args = mysh_split_line(line);
-        check = mysh_execute(args);
+        p.mode = mysh_check_mode(line);
+        cout<<"Mode: "<<p.mode<<endl;
+        p.args = mysh_split_line(line);
+        p.status = mysh_execute(p);
 
         free(line);
-        free(args);
-    } while (check);
+        free(p.args);
+    } while (p.status);
 }
 
 int main(int argc, char **argv)
