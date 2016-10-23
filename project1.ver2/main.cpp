@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <iostream>
 #include <sys/wait.h>
 #include <errno.h>
 #include <time.h>
