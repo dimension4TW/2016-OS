@@ -118,7 +118,7 @@ int mysh_execute_command_segment(struct command_segment *segment, int in_fd, int
             int r = (int)read(fd[0], c, sizeof(char) * BUFFER_SIZE);
 
             if(r > 0){
-                fprintf(stderr, "PIPE INPUT = %s", c);
+                //fprintf(stderr, "PIPE INPUT = %s", c);
                 write(output, c, r); // use write instead of fwrite
             }
         }
