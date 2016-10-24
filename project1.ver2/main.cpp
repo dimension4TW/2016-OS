@@ -191,8 +191,8 @@ struct command_segment *mysh_parse_command_segment(char *segment) {
         new_seg = strtok(segment,">");
         iofile = strtok(NULL," >");
         segment = new_seg;
-        cout<<"re_line: "<<new_seg<<endl;
-        cout<<"dirfile: "<<iofile<<endl;
+        //cout<<"re_line: "<<new_seg<<endl;
+        //cout<<"dirfile: "<<iofile<<endl;
     }
 
     if(strchr(segment, '<') != NULL){
@@ -200,8 +200,8 @@ struct command_segment *mysh_parse_command_segment(char *segment) {
         new_seg = strtok(segment,"<");
         iofile = strtok(NULL," <");
         segment = new_seg;
-        cout<<"re_line: "<<segment<<endl;
-        cout<<"dirfile: "<<iofile<<endl;
+        //cout<<"re_line: "<<segment<<endl;
+        //cout<<"dirfile: "<<iofile<<endl;
     }
 
     token = strtok(segment,DELETE);
