@@ -57,7 +57,7 @@ int mysh_execute_command_segment(struct command_segment *segment, int in_fd, int
     int output;
     string filename = segment->iofile;
     if(segment->outpt){
-        if((output = open(filename.c_str(), O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR)) == -1){
+        if((output = open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR)) == -1){
             fprintf(stderr, "Unable to create/open file '%s'\n", filename.c_str());
             return 1;
         }
