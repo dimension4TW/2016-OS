@@ -8,6 +8,12 @@
 #include <errno.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+
+
 #define BUFFER_SIZE 1024
 #define PIPE_BUFFER 1024
 #define TOK_SIZE 1024
@@ -15,10 +21,6 @@
 
 #define FG_MODE 0
 #define BG_MODE 1
-
-
-#define NONE "\033[m"
-#define LIGHT_PURPLE "\033[1;35m"
 
 using namespace std;
 
@@ -28,11 +30,15 @@ struct command_segment {
     struct command_segment *next;
     pid_t pid;   // process ID
     pid_t pgid;   // process group ID
+    bool outpt;
+    bool inpt;
+    string iofile;
 };
 
 struct command {
     struct command_segment *root;   // a linked list
     int mode;   // BACKGROUND_EXECUTION or FOREGROUND_EXECUTION
+
 };
 
 
@@ -46,24 +52,56 @@ int mysh_bg(pid_t pid) {
 int mysh_execute_command_segment(struct command_segment *segment, int in_fd, int out_fd, int mode, int pgid,
                                  int counter, int total) {
     int pid, status, exec_status;
+    int fd[2];
+    int fd_i;
+    int output;
+    string filename = segment->iofile;
+    if(segment->outpt){
+        if((output = open(filename.c_str(), O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR)) == -1){
+            fprintf(stderr, "Unable to create/open file '%s'\n", filename.c_str());
+            return 1;
+        }
+        if(pipe(fd) == -1){
+            fprintf(stderr, "Error creating pipe\n");
+            return 2;
+        }
+    }
 
     pid = fork();
     if (pid == 0) {
-        if (counter == 0 && counter != total - 1) {
-            close(in_fd);
-            dup2(out_fd, STDOUT_FILENO);
-            close(out_fd);
+        if(segment->outpt){
+
+            int newFD = dup(STDOUT_FILENO);
+            char newFileDescriptor[2];
+            //sprintf(newFileDescriptor, "%d", newFD);
+            dup2(fd[1], STDOUT_FILENO); // You want to modify STDOUT_FILENO
+            close(fd[0]);
         }
-        else if (counter != total - 1) {
-            dup2(in_fd, STDIN_FILENO);
-            dup2(out_fd, STDOUT_FILENO);
-            close(in_fd);
-            close(out_fd);
+
+        if(segment->inpt){
+            fd_i = open(filename.c_str(), O_RDONLY);
+            dup2(fd_i,STDIN_FILENO);
+            //close(0);
         }
-        else {
-            close(out_fd);
-            dup2(in_fd, STDIN_FILENO);
-            close(in_fd);
+
+        else{
+
+            if (counter == 0 && counter != total - 1) {
+                close(in_fd);
+                dup2(out_fd, STDOUT_FILENO);
+                close(out_fd);
+            }
+            else if (counter != total - 1) {
+                dup2(in_fd, STDIN_FILENO);
+                dup2(out_fd, STDOUT_FILENO);
+                close(in_fd);
+                close(out_fd);
+            }
+            else {
+                close(out_fd);
+                dup2(in_fd, STDIN_FILENO);
+                close(in_fd);
+            }
         }
 
         exec_status = execvp(segment->args[0], segment->args);
@@ -73,7 +111,18 @@ int mysh_execute_command_segment(struct command_segment *segment, int in_fd, int
         }
     }
     else if (pid > 0) {
-        //fprintf(stderr, LIGHT_PURPLE"Command executed by pid=%d\n"NONE, pid);
+        if(segment->outpt){
+
+            close(fd[1]);
+            char c[BUFFER_SIZE];
+            int r = (int)read(fd[0], c, sizeof(char) * BUFFER_SIZE);
+
+            if(r > 0){
+                fprintf(stderr, "PIPE INPUT = %s", c);
+                write(output, c, r); // use write instead of fwrite
+            }
+        }
+
         close(in_fd);
         close(out_fd);
         segment->pid = pid;
@@ -132,6 +181,29 @@ struct command_segment *mysh_parse_command_segment(char *segment) {
     int bufsize = TOK_SIZE, position = 0;
     char **tokens = (char**)malloc(bufsize * sizeof(char*));
     char *token;
+    char *new_seg;
+    string iofile = " ";
+    bool outpt = false;
+    bool inpt = false;
+
+    if(strchr(segment, '>') != NULL){
+        outpt  = true;
+        new_seg = strtok(segment,">");
+        iofile = strtok(NULL," >");
+        segment = new_seg;
+        cout<<"re_line: "<<new_seg<<endl;
+        cout<<"dirfile: "<<iofile<<endl;
+    }
+
+    if(strchr(segment, '<') != NULL){
+        inpt  = true;
+        new_seg = strtok(segment,"<");
+        iofile = strtok(NULL," <");
+        segment = new_seg;
+        cout<<"re_line: "<<segment<<endl;
+        cout<<"dirfile: "<<iofile<<endl;
+    }
+
     token = strtok(segment,DELETE);
     while (token != NULL) {
         tokens[position] = token;
@@ -139,6 +211,9 @@ struct command_segment *mysh_parse_command_segment(char *segment) {
         token = strtok(NULL,DELETE);
     }
     tokens[position] = NULL;
+    c->outpt = outpt;
+    c->inpt = inpt;
+    c->iofile = iofile;
     c->args = tokens;
     c->next = NULL;
     return c;
